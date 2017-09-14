@@ -53,7 +53,7 @@ class Foo
             return *this;
         }
 
-        Foo(Foo &&aOther) // move ctor
+        Foo(Foo &&aOther) noexcept // move ctor
             : mSize(aOther.mSize), mBuffer(aOther.mBuffer)
         {
             aOther.mSize = 0;
@@ -61,7 +61,7 @@ class Foo
             gMoveCtorCnt++;
         }
 
-        Foo &operator=(Foo &&aRhs) // move assign ctor
+        Foo &operator=(Foo &&aRhs) noexcept // move assign ctor
         {
             mSize = 0;
             mBuffer = nullptr;
