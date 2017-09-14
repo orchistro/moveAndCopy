@@ -20,17 +20,19 @@ size_t gMoveCtorCnt = 0;
 size_t gCopyAssignCnt = 0;
 size_t gMoveAssignCnt = 0;
 
+#define CTOR(Name) Name(size_t aSize, char *aSrcMem) : mSize(aSize), mBuffer(new char[mSize]) \
+{ \
+    /* std::memcpy(mBuffer, aSrcMem, aSize); */ \
+    \
+    *(mBuffer) = std::rand() & 0x7f; *(mBuffer+mSize-1) = std::rand() & 0x7f; *(mBuffer+mSize/2) = std::rand() & 0x7f;\
+    \
+    /* for (size_t i = 0; i < aSize; i++) { *(mBuffer + i) = std::rand() & 0x7f; } */ \
+}
+
 class Foo
 {
     public:
-        Foo(size_t aSize)
-            : mSize(aSize), mBuffer(new char[mSize])
-        {
-            for (size_t i = 0; i < aSize; i++)
-            {
-                *(mBuffer + i) = std::rand() & 0x7f;
-            }
-        }
+        CTOR(Foo);
 
         ~Foo()
         {
@@ -82,14 +84,7 @@ class Foo
 class FooNomove
 {
     public:
-        FooNomove(size_t aSize)
-            : mSize(aSize), mBuffer(new char[mSize])
-        {
-            for (size_t i = 0; i < aSize; i++)
-            {
-                *(mBuffer + i) = std::rand() & 0x7f;
-            }
-        }
+        CTOR(FooNomove);
 
         ~FooNomove()
         {
@@ -126,6 +121,8 @@ static void printUsageAndExit(void)
     exit(1);
 }
 
+char *gSrcMem;
+
 static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize)
 {
     int32_t i = 0;
@@ -134,7 +131,7 @@ static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize)
 
     while (i++ < aLoopCnt)
     {
-        FooNomove sFoo(aObjSize);
+        FooNomove sFoo(aObjSize, gSrcMem);
 
         sVector.push_back(sFoo);
     }
@@ -150,7 +147,9 @@ static std::vector<Foo> moveTest(int32_t aLoopCnt, size_t aObjSize)
 
     while (i++ < aLoopCnt)
     {
-        sVector.push_back(Foo(aObjSize));
+        Foo sFoo(aObjSize, gSrcMem);
+
+        sVector.push_back(std::move(sFoo));
     }
 
     return sVector;
@@ -177,6 +176,12 @@ int32_t main(int32_t argc, char *argv[])
     int32_t sLoopCnt = std::strtol(argv[1], NULL, 10);
     size_t sObjSize = std::strtoull(argv[2], NULL, 10);
     std::string sCopyOrMove = argv[3];
+
+    gSrcMem = (char *)malloc(sObjSize);
+    for (size_t i = 0; i < sObjSize; i++)
+    {
+        *(gSrcMem + i) = std::rand() & 0x7f;
+    }
 
     std::vector<FooNomove> sVectorNoMove;
     std::vector<Foo> sVector;
