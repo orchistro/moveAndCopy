@@ -142,37 +142,47 @@ class FooNomove
 
 static void printUsageAndExit(void)
 {
-    fprintf(stderr, "Usage: test LOOPCNT OBJSIZE MEMCPY/THREE/ALLRAND COPY/MOVE\n");
+    fprintf(stderr, "Usage: test LOOPCNT OBJSIZE MEMCPY/THREE/ALLRAND COPY/MOVE RESERVE/NORESERVE\n");
     exit(1);
 }
 
-static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize, char *aSrcMem, int32_t aInitMethod)
+static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize, char *aSrcMem, int32_t aInitMethod, bool aUseReserve)
 {
     int32_t i = 0;
 
     std::vector<FooNomove> sVector;;
 
+    if (aUseReserve == true)
+    {
+        sVector.reserve(aObjSize);
+    }
+
     while (i++ < aLoopCnt)
     {
         FooNomove sFoo(aObjSize, aSrcMem, aInitMethod);
 
-        sVector.push_back(sFoo);
+        sVector.emplace_back(sFoo);
     }
 
     return sVector;
 }
 
-static std::vector<Foo> moveTest(int32_t aLoopCnt, size_t aObjSize, char *aSrcMem, int32_t aInitMethod)
+static std::vector<Foo> moveTest(int32_t aLoopCnt, size_t aObjSize, char *aSrcMem, int32_t aInitMethod, bool aUseReserve)
 {
     int32_t i = 0;
 
     std::vector<Foo> sVector;;
 
+    if (aUseReserve == true)
+    {
+        sVector.reserve(aObjSize);
+    }
+
     while (i++ < aLoopCnt)
     {
         Foo sFoo(aObjSize, aSrcMem, aInitMethod);
 
-        sVector.push_back(std::move(sFoo));
+        sVector.emplace_back(std::move(sFoo));
     }
 
     return sVector;
@@ -213,7 +223,7 @@ int32_t main(int32_t argc, char *argv[])
 {
     std::srand(std::time(0));
 
-    if (argc != 5)
+    if (argc != 6)
     {
         printUsageAndExit();
     }
@@ -231,19 +241,33 @@ int32_t main(int32_t argc, char *argv[])
     std::unique_ptr<char []> sSrcMem = std::make_unique<char []>(sObjSize);
     initMem(sSrcMem.get(), sObjSize);
 
-    std::vector<FooNomove> sVectorNoMove;
-    std::vector<Foo> sVector;
+    std::string sReserveNoReserve = argv[5];
+    bool sUseReserve;
+    if (sReserveNoReserve == "reserve")
+    {
+        sUseReserve = true;
+    }
+    else if (sReserveNoReserve == "noreserve")
+    {
+        sUseReserve = false;
+    }
+    else
+    {
+        printUsageAndExit();
+    }
 
     if (sCopyOrMove == "copy")
     {
-        sVectorNoMove = copyTest(sLoopCnt, sObjSize, sSrcMem.get(), sInitMethod);
-        printf("vector size = %zu\n", sVectorNoMove.size());
+        std::vector<FooNomove> sVector;
+        sVector = copyTest(sLoopCnt, sObjSize, sSrcMem.get(), sInitMethod, sUseReserve);
+        printf("vector size = %zu\n", sVector.size());
     }
     else
     {
         if (sCopyOrMove == "move")
         {
-            sVector = moveTest(sLoopCnt, sObjSize, sSrcMem.get(), sInitMethod);
+            std::vector<Foo> sVector;
+            sVector = moveTest(sLoopCnt, sObjSize, sSrcMem.get(), sInitMethod, sUseReserve);
             printf("vector size = %zu\n", sVector.size());
         }
         else
