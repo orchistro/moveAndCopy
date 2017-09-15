@@ -20,13 +20,38 @@ size_t gMoveCtorCnt = 0;
 size_t gCopyAssignCnt = 0;
 size_t gMoveAssignCnt = 0;
 
-#define CTOR(Name) Name(size_t aSize, char *aSrcMem) : mSize(aSize), mBuffer(new char[mSize]) \
+#define INITIALIZER(aMethod) do \
 { \
-    /* std::memcpy(mBuffer, aSrcMem, aSize); */ \
-    \
-    *(mBuffer) = std::rand() & 0x7f; *(mBuffer+mSize-1) = std::rand() & 0x7f; *(mBuffer+mSize/2) = std::rand() & 0x7f;\
-    \
-    /* for (size_t i = 0; i < aSize; i++) { *(mBuffer + i) = std::rand() & 0x7f; } */ \
+    switch (aMethod) \
+    { \
+        case 1: /* memcpy */ \
+            std::memcpy(mBuffer, aSrcMem, aSize); \
+            break; \
+        case 2: /* three */ \
+            *(mBuffer) = std::rand() & 0x7f; \
+            *(mBuffer+mSize-1) = std::rand() & 0x7f; \
+            *(mBuffer+mSize/2) = std::rand() & 0x7f;\
+            break; \
+        case 3: /* allrand */ \
+            initMem(mBuffer, aSize); \
+            break; \
+        default: \
+            abort(); \
+    } \
+} while (0)
+
+#define CTOR(aClassName) aClassName(size_t aSize, char *aSrcMem, int32_t aMethod) \
+    : mSize(aSize), mBuffer(new char[mSize]) \
+    { \
+        INITIALIZER(aMethod); \
+    }
+
+static void initMem(char *aBuffer, size_t aSize)
+{
+    for (size_t i = 0; i < aSize; i++)
+    {
+        *(aBuffer + i) = std::rand() & 0x7f;
+    }
 }
 
 class Foo
@@ -117,13 +142,11 @@ class FooNomove
 
 static void printUsageAndExit(void)
 {
-    fprintf(stderr, "Usage: test LOOPCNT OBJSIZE COPY/MOVE\n");
+    fprintf(stderr, "Usage: test LOOPCNT OBJSIZE MEMCPY/THREE/ALLRAND COPY/MOVE\n");
     exit(1);
 }
 
-char *gSrcMem;
-
-static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize)
+static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize, char *aSrcMem, int32_t aInitMethod)
 {
     int32_t i = 0;
 
@@ -131,7 +154,7 @@ static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize)
 
     while (i++ < aLoopCnt)
     {
-        FooNomove sFoo(aObjSize, gSrcMem);
+        FooNomove sFoo(aObjSize, aSrcMem, aInitMethod);
 
         sVector.push_back(sFoo);
     }
@@ -139,7 +162,7 @@ static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize)
     return sVector;
 }
 
-static std::vector<Foo> moveTest(int32_t aLoopCnt, size_t aObjSize)
+static std::vector<Foo> moveTest(int32_t aLoopCnt, size_t aObjSize, char *aSrcMem, int32_t aInitMethod)
 {
     int32_t i = 0;
 
@@ -147,7 +170,7 @@ static std::vector<Foo> moveTest(int32_t aLoopCnt, size_t aObjSize)
 
     while (i++ < aLoopCnt)
     {
-        Foo sFoo(aObjSize, gSrcMem);
+        Foo sFoo(aObjSize, aSrcMem, aInitMethod);
 
         sVector.push_back(std::move(sFoo));
     }
@@ -164,38 +187,63 @@ static void checkCalls(void)
     printf("gMoveAssignCnt = %zu\n", gMoveAssignCnt);
 }
 
+static int32_t getMethodNumber(const char *aUserInput)
+{
+    std::string sInput(aUserInput);
+
+    if (sInput == "memcpy")
+    {
+        return 1;
+    }
+    else if (sInput == "three")
+    {
+        return 2;
+    }
+    else if (sInput == "allrand")
+    {
+        return 3;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
 int32_t main(int32_t argc, char *argv[])
 {
     std::srand(std::time(0));
 
-    if (argc != 4)
+    if (argc != 5)
     {
         printUsageAndExit();
     }
 
     int32_t sLoopCnt = std::strtol(argv[1], NULL, 10);
     size_t sObjSize = std::strtoull(argv[2], NULL, 10);
-    std::string sCopyOrMove = argv[3];
-
-    gSrcMem = (char *)malloc(sObjSize);
-    for (size_t i = 0; i < sObjSize; i++)
+    int32_t sInitMethod = getMethodNumber(argv[3]);
+    if (sInitMethod < 0)
     {
-        *(gSrcMem + i) = std::rand() & 0x7f;
+        printUsageAndExit();
     }
+
+    std::string sCopyOrMove = argv[4];
+
+    std::unique_ptr<char []> sSrcMem = std::make_unique<char []>(sObjSize);
+    initMem(sSrcMem.get(), sObjSize);
 
     std::vector<FooNomove> sVectorNoMove;
     std::vector<Foo> sVector;
 
     if (sCopyOrMove == "copy")
     {
-        sVectorNoMove = copyTest(sLoopCnt, sObjSize);
+        sVectorNoMove = copyTest(sLoopCnt, sObjSize, sSrcMem.get(), sInitMethod);
         printf("vector size = %zu\n", sVectorNoMove.size());
     }
     else
     {
         if (sCopyOrMove == "move")
         {
-            sVector = moveTest(sLoopCnt, sObjSize);
+            sVector = moveTest(sLoopCnt, sObjSize, sSrcMem.get(), sInitMethod);
             printf("vector size = %zu\n", sVector.size());
         }
         else

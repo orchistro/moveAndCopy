@@ -27,11 +27,18 @@ else
 ifeq ($(MAKECMDGOALS), cpp11)
 CPPSTDOPT=-std=c++11
 else
+CPPSTDOPT=-std=c++14
 endif
 endif
 
+ifeq ($(PROF), 1)
+GPROFOPT=-pg
+else
+GPROFOPT=
+endif
+
 CXXFLAGS=-c -fPIC -Wall -Werror -g -I. -I../externals/boost/include \
-		 -Wno-format-extra-args -Wformat-security -Wformat-nonliteral -Wformat=2 $(CPPSTDOPT) -pg
+		 -Wno-format-extra-args -Wformat-security -Wformat-nonliteral -Wformat=2 $(CPPSTDOPT) $(GPROFOPT)
 
 test0.o: test.cpp
 	g++ -O0 -o $@ $< $(CXXFLAGS)
