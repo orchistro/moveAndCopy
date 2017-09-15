@@ -154,7 +154,7 @@ static std::vector<FooNomove> copyTest(int32_t aLoopCnt, size_t aObjSize, char *
 
     if (aUseReserve == true)
     {
-        sVector.reserve(aObjSize);
+        sVector.reserve(aLoopCnt);
     }
 
     while (i++ < aLoopCnt)
@@ -175,7 +175,7 @@ static std::vector<Foo> moveTest(int32_t aLoopCnt, size_t aObjSize, char *aSrcMe
 
     if (aUseReserve == true)
     {
-        sVector.reserve(aObjSize);
+        sVector.reserve(aLoopCnt);
     }
 
     while (i++ < aLoopCnt)
